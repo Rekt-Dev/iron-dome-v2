@@ -1,16 +1,44 @@
-# React + Vite
+# Iron Dome
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Personal gym session tracker built for daily use. Logs sets with execution quality, tracks rest periods, syncs to Supabase, and exports session data as CSV or JPEG.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Session logging** — weight, reps, TUT (time under tension), rest time per set
+- **Execution modes** — tag each set as Strict / Controlled / Momentum / Assisted
+- **Rest timer** — countdown with push notification when rest is done
+- **Real-time sync** — Supabase persists every session automatically with debounced saves
+- **Auto daily backup** — triggers at 19:00 or on app focus, exports CSV + JPEG silently
+- **CSV export** — daily / weekly / monthly / YTD
+- **Screenshot export** — save session log as JPEG via html2canvas
+- **PWA** — installable on mobile, service worker for background backup scheduling
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 18 + Vite
+- Supabase (Postgres)
+- html2canvas
+- Service Worker / PWA
 
-## Expanding the ESLint configuration
+## Exercise catalog
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Bench Press · Overhead Press · Assisted Pullup · Pullup · Chinup · Pushup · Shoulder Press · Bicep Curl · Prone Row
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Requires a Supabase project with a `workouts` table:
+
+```sql
+create table workouts (
+  id uuid primary key,
+  data jsonb,
+  created_at timestamptz default now()
+);
+```
+
+Add your Supabase URL and anon key to `src/supabaseClient.js`.

@@ -62,7 +62,87 @@ function downloadCsv(content, filename) {
   a.click();
 }
 
+function LoginScreen() {
+  const [email,   setEmail]   = useState("");
+  const [sent,    setSent]    = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
+
+  async function sendMagicLink() {
+    if (!email.trim()) return;
+    setLoading(true); setError("");
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setLoading(false);
+    if (error) setError(error.message);
+    else setSent(true);
+  }
+
+  return (
+    <div style={{ minHeight:"100dvh", display:"flex", alignItems:"center", justifyContent:"center", background:"#080808", padding:24 }}>
+      <div style={{ width:"100%", maxWidth:360 }}>
+        <div style={{ fontSize:22, fontWeight:800, letterSpacing:"0.08em", color:"#fff", marginBottom:4 }}>⚔ IRON DOME</div>
+        <div style={{ fontSize:12, color:"#475569", marginBottom:32 }}>Sign in to sync your sessions</div>
+        {sent ? (
+          <div style={{ background:"rgba(74,222,128,0.08)", border:"1px solid rgba(74,222,128,0.25)", borderRadius:12, padding:"20px 18px", textAlign:"center" }}>
+            <div style={{ fontSize:28, marginBottom:12 }}>📬</div>
+            <div style={{ color:"#4ade80", fontWeight:700, marginBottom:6 }}>Check your email</div>
+            <div style={{ color:"#64748b", fontSize:13 }}>Magic link sent to <strong style={{ color:"#94a3b8" }}>{email}</strong></div>
+          </div>
+        ) : (
+          <>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && sendMagicLink()}
+              placeholder="your@email.com"
+              style={{ width:"100%", background:"#111", border:"1px solid #252525", color:"#f1f5f9", borderRadius:10, padding:"14px 16px", fontSize:15, fontFamily:"inherit", boxSizing:"border-box", marginBottom:12, outline:"none" }}
+              autoFocus
+            />
+            {error && <div style={{ color:"#f87171", fontSize:12, marginBottom:10 }}>{error}</div>}
+            <button
+              onClick={sendMagicLink}
+              disabled={loading || !email.trim()}
+              style={{ width:"100%", background:"#4ade80", border:"none", color:"#000", borderRadius:10, padding:"14px", fontSize:14, fontWeight:800, cursor:"pointer", fontFamily:"inherit", letterSpacing:"0.06em", opacity: loading || !email.trim() ? 0.5 : 1 }}
+            >
+              {loading ? "Sending…" : "Send Magic Link"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (authLoading) return (
+    <div style={{ minHeight:"100dvh", display:"flex", alignItems:"center", justifyContent:"center", background:"#080808", color:"#475569", fontSize:13, fontFamily:"'DM Mono',monospace" }}>
+      loading…
+    </div>
+  );
+
+  if (!user) return <LoginScreen />;
+  return <IronDomeApp user={user} />;
+}
+
+function IronDomeApp({ user }) {
   const [loading,           setLoading]           = useState(true);
   const [exportLoading,     setExportLoading]     = useState(false);
   const [screenshotLoading, setScreenshotLoading] = useState(false);
@@ -115,6 +195,7 @@ export default function App() {
   async function loadLatestSession() {
     const { data } = await supabase
       .from("workouts").select("*")
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1).maybeSingle();
 
@@ -149,7 +230,7 @@ export default function App() {
 
   async function saveSession(updated) {
     const clean = structuredClone(updated);
-    await supabase.from("workouts").upsert({ id: clean.id, data: clean }, { onConflict: "id" });
+    await supabase.from("workouts").upsert({ id: clean.id, user_id: user.id, data: clean }, { onConflict: "id" });
   }
 
   function startRestTimer(seconds) {
@@ -187,7 +268,7 @@ export default function App() {
   async function exportCsvSilent(period) {
     const since = getDateRange(period);
     const { data, error } = await supabase.from("workouts").select("*")
-      .gte("created_at", since).order("created_at", { ascending: true });
+      .eq("user_id", user.id).gte("created_at", since).order("created_at", { ascending: true });
     if (error) throw error;
     if (!data?.length) return;
     downloadCsv(sessionsToCsv(data), `iron-dome-${period}-${new Date().toISOString().slice(0,10)}.csv`);
@@ -275,6 +356,8 @@ export default function App() {
           <div style={S.date}>{sessionDate}</div>
         </div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:6 }}>
+          <div style={{ display:"flex", gap:6 }}>
+            <button style={S.backupBtn} onClick={() => supabase.auth.signOut()} title="Sign out">⏻</button>
           <div style={{ position:"relative" }}>
             <button style={S.backupBtn} onClick={() => setShowBackupMenu(p => !p)} disabled={exportLoading || screenshotLoading}>
               {exportLoading || screenshotLoading ? "⏳" : "💾"} Backup
@@ -295,6 +378,7 @@ export default function App() {
                 </div>
               </>
             )}
+          </div>
           </div>
           {backupStatus === "saving" && <span style={S.bStatus("#fbbf24")}>backing up…</span>}
           {backupStatus === "done"   && <span style={S.bStatus("#4ade80")}>✓ {lastBackup}</span>}

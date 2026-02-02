@@ -1,5 +1,7 @@
 # Iron Dome
 
+![Iron Dome](./public/screenshot.jpg)
+
 Personal gym session tracker built for daily use. Logs sets with execution quality, tracks rest periods, syncs to Supabase, and exports session data as CSV or JPEG.
 
 ## Features

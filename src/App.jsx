@@ -252,10 +252,10 @@ function IronDomeApp({ user }) {
   async function runAutoBackup() {
     const today = new Date().toISOString().slice(0,10);
     if (localStorage.getItem("iron-dome-last-backup") === today) return;
+    localStorage.setItem("iron-dome-last-backup", today);
     setBackupStatus("saving");
     try {
       await Promise.all([exportCsvSilent("daily"), exportJpegSilent()]);
-      localStorage.setItem("iron-dome-last-backup", today);
       setLastBackup(new Date().toLocaleTimeString());
       setBackupStatus("done");
       setTimeout(() => setBackupStatus(""), 4000);
